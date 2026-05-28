@@ -1,0 +1,6 @@
+LOCKER,L01,Locker #01,true,101,Locker Area A
+LOCKER,L02,Locker #02,true,102,Locker Area A
+LOCKER,L03,Locker #03,true,103,Locker Area B
+EQUIPMENT,E01,Dumbbell 10kg,true,10,Excellent
+EQUIPMENT,E02,Dumbbell 20kg,true,20,Excellent
+EQUIPMENT,E03,Yoga Mat,true,0,Wear
