@@ -20,10 +20,12 @@ void RegularUser::displayMenu() {
               << "  │     1. Add Diet Log (新增今日飲食記錄)                      │\n"
               << "  │     2. Add Workout Log (新增今日運動健身記錄)               │\n"
               << "  │     3. View Historical Logs (檢視歷史健康日誌)              │\n"
-              << "  │     4. Rent Equipment/Locker (租借健身房器材/置物櫃)         │\n"
-              << "  │     5. Return Rented Item (歸還健身房器材/置物櫃)            │\n"
-              << "  │     6. View My Rental Status (檢視我的租借狀態)             │\n"
-              << "  │     7. Save Changes & Logout (儲存並登出)                  │\n"
+              << "  │     4. Delete Log Entry (刪除記錄)                         │\n"
+              << "  │     5. Rent Equipment/Locker (租借健身房器材/置物櫃)         │\n"
+              << "  │     6. Return Rented Item (歸還健身房器材/置物櫃)            │\n"
+              << "  │     7. View My Rental Status (檢視我的租借狀態)             │\n"
+              << "  │     8. Send Feedback (發送建議給管理員)                     │\n"
+              << "  │     9. Save Changes & Logout (儲存並登出)                  │\n"
               << "  └──────────────────────────────────────────────────────────┘\n";
 }
 

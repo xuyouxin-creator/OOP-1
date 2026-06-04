@@ -13,6 +13,7 @@
 #include "WorkoutEntry.h"
 #include "Locker.h"
 #include "Equipment.h"
+#include "UIUtils.h"
 
 // Helper function to safely read integer from console
 int readInt(const std::string& prompt) {
@@ -20,12 +21,12 @@ int readInt(const std::string& prompt) {
     while (true) {
         std::cout << prompt;
         if (std::cin >> value) {
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cin.ignore(10000, '\n');
             return value;
         } else {
             std::cout << "錯誤：請輸入有效的整數！\n";
             std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cin.ignore(10000, '\n');
         }
     }
 }
@@ -36,12 +37,12 @@ double readDouble(const std::string& prompt) {
     while (true) {
         std::cout << prompt;
         if (std::cin >> value) {
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cin.ignore(10000, '\n');
             return value;
         } else {
             std::cout << "錯誤：請輸入有效的浮點數！\n";
             std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cin.ignore(10000, '\n');
         }
     }
 }
@@ -54,15 +55,42 @@ std::string readString(const std::string& prompt) {
     return value;
 }
 
+// Wait for user to press any key before returning to menu
+void waitForContinueInMenu() {
+    std::cout << "\n按任意鍵返回菜單...\n";
+    std::cin.ignore(10000, '\n');
+}
+
 void handleRegularUserLoop(HealthSystem& system) {
     auto regUser = std::dynamic_pointer_cast<RegularUser>(system.getCurrentUser());
     if (!regUser) return;
 
-    while (true) {
-        regUser->displayMenu();
-        int choice = readInt(">> 請選擇操作指令 (1-7): ");
+    std::vector<std::string> regularUserOptions = {
+        "新增飲食記錄 (Add Diet Log)",
+        "新增運動日誌 (Add Workout Log)",
+        "檢視歷史健康日誌 (View Historical Logs)",
+        "刪除記錄 (Delete Log Entry)",
+        "租借器材/置物櫃 (Rent Equipment/Locker)",
+        "歸還器材/置物櫃 (Return Rented Item)",
+        "檢視租借紀錄總覽 (View My Rental Status)",
+        "發送建議給管理員 (Send Feedback)",
+        "儲存並登出 (Save & Logout)"
+    };
 
-        if (choice == 7) {
+    while (true) {
+        UIUtils::clearScreen();
+        regUser->displayMenu();
+        int choice = UIUtils::selectMenu(regularUserOptions);
+        
+        if (choice == -1) {
+            std::cout << "\n按任意鍵返回上一步...\n";
+            UIUtils::waitForEnter();
+            break;
+        }
+        
+        choice++; // Convert 0-based index to 1-based choice
+
+        if (choice == 9) {
             std::cout << "正在儲存資料並登出...\n";
             system.logout();
             std::cout << "登出成功！\n";
@@ -84,6 +112,7 @@ void handleRegularUserLoop(HealthSystem& system) {
                 regUser->addLog(diet);
                 system.saveDatabase();
                 std::cout << "✓ 飲食記錄新增成功！\n";
+                waitForContinueInMenu();
                 break;
             }
             case 2: { // Add Workout Log
@@ -98,6 +127,7 @@ void handleRegularUserLoop(HealthSystem& system) {
                 regUser->addLog(workout);
                 system.saveDatabase();
                 std::cout << "✓ 運動日誌新增成功！\n";
+                waitForContinueInMenu();
                 break;
             }
             case 3: { // View Historical Logs
@@ -105,14 +135,39 @@ void handleRegularUserLoop(HealthSystem& system) {
                 if (regUser->getLogs().empty()) {
                     std::cout << "（目前尚無歷史紀錄）\n";
                 } else {
-                    for (const auto& log : regUser->getLogs()) {
-                        log->displayDetails();
+                    for (int i = 0; i < static_cast<int>(regUser->getLogs().size()); ++i) {
+                        std::cout << "[" << (i + 1) << "] ";
+                        regUser->getLogs()[i]->displayDetails();
                         std::cout << "--------------------------------------\n";
                     }
                 }
+                waitForContinueInMenu();
                 break;
             }
-            case 4: { // Rent Equipment/Locker
+            case 4: { // Delete Log Entry
+                std::cout << "\n--- 🗑️ 刪除記錄 ---\n";
+                if (regUser->getLogs().empty()) {
+                    std::cout << "（目前尚無歷史紀錄可刪除）\n";
+                    break;
+                }
+                
+                std::cout << "您的記錄列表：\n";
+                for (int i = 0; i < static_cast<int>(regUser->getLogs().size()); ++i) {
+                    std::cout << "[" << (i + 1) << "] ";
+                    regUser->getLogs()[i]->displayDetails();
+                }
+                
+                int idx = readInt("請輸入要刪除的記錄編號: ");
+                if (regUser->deleteLog(idx - 1)) {
+                    system.saveDatabase();
+                    std::cout << "✓ 記錄已成功刪除！\n";
+                } else {
+                    std::cout << "✗ 錯誤：無效的編號！\n";
+                }
+                waitForContinueInMenu();
+                break;
+            }
+            case 5: { // Rent Equipment/Locker
                 std::cout << "\n--- 🔑 租借健身房器材/置物櫃 ---\n";
                 std::cout << "可用資產列表：\n";
                 bool anyAvail = false;
@@ -134,9 +189,10 @@ void handleRegularUserLoop(HealthSystem& system) {
                 } else {
                     std::cout << "❌ 租借失敗！找不到該物品，或該物品已被租走。\n";
                 }
+                waitForContinueInMenu();
                 break;
             }
-            case 5: { // Return Rented Item
+            case 6: { // Return Rented Item
                 std::cout << "\n--- 🔄 歸還健身房器材/置物櫃 ---\n";
                 std::cout << "您的租借紀錄：\n";
                 bool anyRented = false;
@@ -159,10 +215,9 @@ void handleRegularUserLoop(HealthSystem& system) {
                     std::cout << "✓ 歸還成功！物品狀態已更新為可用。\n";
                 } else {
                     std::cout << "❌ 歸還失敗！您並未承租此物品，或輸入的 ID 錯誤。\n";
-                }
-                break;
+                }                waitForContinueInMenu();                break;
             }
-            case 6: { // View My Rental Status
+            case 7: { // View My Rental Status
                 std::cout << "\n--- 📋 我的租借紀錄總覽 ---\n";
                 bool anyRecord = false;
                 for (const auto& rec : system.getRentals()) {
@@ -179,6 +234,13 @@ void handleRegularUserLoop(HealthSystem& system) {
                 if (!anyRecord) {
                     std::cout << "（您尚無任何租借歷史交易紀錄）\n";
                 }
+                waitForContinueInMenu();
+                break;
+            }
+            case 8: { // Send Feedback
+                std::cout << "\n--- 📬 發送建議給管理員 ---\n";
+                std::string feedback = readString("請輸入您的建議或意見: ");
+                system.submitFeedback(feedback);
                 break;
             }
             default:
@@ -191,11 +253,33 @@ void handleAdminUserLoop(HealthSystem& system) {
     auto adminUser = std::dynamic_pointer_cast<AdminUser>(system.getCurrentUser());
     if (!adminUser) return;
 
-    while (true) {
-        adminUser->displayMenu();
-        int choice = readInt(">> 請選擇行政管理指令 (1-6): ");
+    std::vector<std::string> adminUserOptions = {
+        "列出所有使用者 (List All Users)",
+        "查看用戶詳細資訊 (View User Details)",
+        "修正用戶熱量目標 (Modify Calorie Targets)",
+        "檢視租借紀錄總覽 (View Rental Records)",
+        "新增器材/置物櫃 (Add New Asset)",
+        "刪除器材/置物櫃 (Delete Asset)",
+        "註銷用戶帳戶 (Terminate User Account)",
+        "查看使用者反饋 (View User Feedback)",
+        "查看特定用戶日誌 (View User Logs)",
+        "儲存系統並登出 (Save & Logout)"
+    };
 
-        if (choice == 6) {
+    while (true) {
+        UIUtils::clearScreen();
+        adminUser->displayMenu();
+        int choice = UIUtils::selectMenu(adminUserOptions);
+        
+        if (choice == -1) {
+            std::cout << "\n按任意鍵返回上一步...\n";
+            UIUtils::waitForEnter();
+            break;
+        }
+        
+        choice++; // Convert 0-based index to 1-based choice
+
+        if (choice == 10) {
             std::cout << "正在儲存資料並退出管理系統...\n";
             system.logout();
             std::cout << "管理員登出成功！\n";
@@ -207,21 +291,37 @@ void handleAdminUserLoop(HealthSystem& system) {
                 system.listAllUsers();
                 break;
             }
-            case 2: { // Modify User Calorie Targets
+            case 2: { // View User Details
+                std::cout << "\n--- 👤 查看使用者詳細資訊 ---\n";
+                std::string uname = readString("請輸入使用者名稱: ");
+                system.viewUserDetails(uname);
+                break;
+            }
+            case 3: { // Modify User Calorie Targets
                 std::cout << "\n--- ⚙️ 修正用戶卡路里目標 ---\n";
                 std::string uname = readString("請輸入欲修正的用戶名稱: ");
                 int newTarget = readInt("請輸入新的每日卡路里目標值: ");
                 system.modifyUserTarget(uname, newTarget);
                 break;
             }
-            case 3: { // View Rental Records Directory
+            case 4: { // View Rental Records Directory
                 system.listRentals();
                 break;
             }
-            case 4: { // Add New Rentable Asset
+            case 5: { // Add New Rentable Asset
                 std::cout << "\n--- 🛡️ 新增可租借器材/置物櫃 ---\n";
-                std::cout << "請選擇新增類別：[1] 置物櫃 (Locker)  [2] 健身器材 (Equipment)\n";
-                int assetType = readInt(">> ");
+                std::vector<std::string> assetTypeOptions = {
+                    "置物櫃 (Locker)",
+                    "健身器材 (Equipment)"
+                };
+                int assetType = UIUtils::selectMenu(assetTypeOptions);
+                
+                if (assetType == -1) {
+                    std::cout << "\n取消新增資產操作。\n";
+                    break;
+                }
+                
+                assetType++; // Convert to 1-based
                 
                 std::string id = readString("請輸入新資產唯一 ID (如 L04 或 E04): ");
                 std::string name = readString("請輸入新資產名稱 (如 VIP Locker 04 或 Dumbbell 30kg): ");
@@ -243,7 +343,22 @@ void handleAdminUserLoop(HealthSystem& system) {
                 }
                 break;
             }
-            case 5: { // Terminate/Delete User Account
+            case 6: { // Delete Rentable Asset
+                std::cout << "\n--- 🗑️ 刪除器材/置物櫃 ---\n";
+                std::cout << "目前庫存清單：\n";
+                for (const auto& item : system.getInventory()) {
+                    std::cout << "ID: " << item->getItemId() << " - " << item->getItemName() << "\n";
+                }
+                
+                std::string itemId = readString("請輸入要刪除的物品 ID: ");
+                if (system.deleteInventoryItem(itemId)) {
+                    std::cout << "✓ 器材已成功刪除！\n";
+                } else {
+                    std::cout << "✗ 錯誤：找不到該物品！\n";
+                }
+                break;
+            }
+            case 7: { // Delete User Account
                 std::cout << "\n--- ⚠️ 註銷/刪除使用者帳戶 ---\n";
                 std::string uname = readString("警告：此操作不可逆！\n請輸入欲永久刪除的使用者名稱: ");
                 
@@ -252,6 +367,21 @@ void handleAdminUserLoop(HealthSystem& system) {
                 } else {
                     std::cout << "❌ 刪除失敗！找不到該帳戶，或該帳戶是管理員。\n";
                 }
+                break;
+            }
+            case 8: { // View User Feedback
+                std::cout << "\n--- 📬 查看使用者反饋 ---\n";
+                int unreadCount = system.getUnreadFeedbackCount();
+                if (unreadCount > 0) {
+                    std::cout << "📌 您有 " << unreadCount << " 條未讀反饋！\n\n";
+                }
+                system.displayAllFeedbacks();
+                break;
+            }
+            case 9: { // View All User Logs (History)
+                std::cout << "\n--- 📋 查看特定使用者日誌 ---\n";
+                std::string uname = readString("請輸入使用者名稱: ");
+                system.listUserLogs(uname);
                 break;
             }
             default:
@@ -271,18 +401,30 @@ int main() {
     HealthSystem system;
     std::cout << "=== 系統資料庫載入完成！ ===\n";
 
+    std::vector<std::string> mainMenuOptions = {
+        "帳戶登入 (Sign In)",
+        "註冊新會員 (Register New Member)",
+        "安全退出系統 (Exit System)"
+    };
+
     while (true) {
+        UIUtils::clearScreen();
         std::cout << "\n  ┌──────────────────────────────────────────────────────────┐\n"
                   << "  │               Welcome to FitLife Tracker v1.0            │\n"
                   << "  ├──────────────────────────────────────────────────────────┤\n"
                   << "  │                                                          │\n"
-                  << "  │     [1] Sign In (帳戶登入 - 支援使用者及管理員)           │\n"
-                  << "  │     [2] Register New Member (註冊新一般會員)             │\n"
-                  << "  │     [3] Exit System (安全退出系統)                       │\n"
+                  << "  │     💪 健身與營養管理系統 - Fitness & Nutrition Tracker  │\n"
                   << "  │                                                          │\n"
                   << "  └──────────────────────────────────────────────────────────┘\n";
         
-        int choice = readInt(">> 請選擇主功能項目 (1-3): ");
+        int choice = UIUtils::selectMenu(mainMenuOptions);
+        
+        if (choice == -1) {
+            std::cout << "\n💡 提示：在主菜單中，請選擇一個選項或選擇「安全退出系統」\n";
+            continue;
+        }
+        
+        choice++; // Convert 0-based index to 1-based choice
 
         if (choice == 3) {
             std::cout << "正在安全保存資料庫檔案...\n";

@@ -30,6 +30,7 @@ bool HealthSystem::loadDatabase() {
     loadUsers();
     loadInventory();
     loadRentals();
+    loadFeedbacks();
     return true;
 }
 
@@ -37,6 +38,7 @@ bool HealthSystem::saveDatabase() {
     saveUsers();
     saveInventory();
     saveRentals();
+    saveFeedbacks();
     return true;
 }
 
@@ -469,4 +471,156 @@ void HealthSystem::modifyUserTarget(const std::string& username, int newTarget) 
     users[username] = newReg;
     saveDatabase();
     std::cout << "卡路里目標修改成功！" << std::endl;
+}
+
+bool HealthSystem::deleteInventoryItem(const std::string& itemId) {
+    auto it = std::find_if(inventory.begin(), inventory.end(),
+        [&itemId](const std::shared_ptr<RentableItem>& item) {
+            return item->getItemId() == itemId;
+        });
+
+    if (it != inventory.end()) {
+        inventory.erase(it);
+        saveDatabase();
+        return true;
+    }
+    return false;
+}
+
+void HealthSystem::viewUserDetails(const std::string& username) const {
+    auto it = users.find(username);
+    if (it == users.end()) {
+        std::cout << "\n✗ 錯誤: 找不到該使用者！\n";
+        return;
+    }
+
+    auto user = it->second;
+    std::cout << "\n================= 使用者詳細資訊 =================\n";
+    std::cout << "帳號: " << user->getUsername() << "\n";
+    std::cout << "密碼: " << user->getPassword() << "\n";
+    std::cout << "身分: " << (user->getRole() == UserRole::ADMIN ? "管理者" : "一般使用者") << "\n";
+
+    auto reg = std::dynamic_pointer_cast<RegularUser>(user);
+    if (reg) {
+        std::cout << "身高: " << reg->getHeight() << " cm\n";
+        std::cout << "體重: " << reg->getWeight() << " kg\n";
+        std::cout << "BMI: " << reg->calculateBMI() << "\n";
+        std::cout << "卡路里目標: " << reg->getCalorieTarget() << " kcal\n";
+
+        std::cout << "\n--- 飲食記錄 ---\n";
+        int dietCount = 0;
+        for (const auto& log : reg->getLogs()) {
+            auto diet = std::dynamic_pointer_cast<DietEntry>(log);
+            if (diet) {
+                dietCount++;
+                diet->displayDetails();
+            }
+        }
+        if (dietCount == 0) {
+            std::cout << "（尚無飲食記錄）\n";
+        }
+
+        std::cout << "\n--- 運動記錄 ---\n";
+        int workoutCount = 0;
+        for (const auto& log : reg->getLogs()) {
+            auto workout = std::dynamic_pointer_cast<WorkoutEntry>(log);
+            if (workout) {
+                workoutCount++;
+                workout->displayDetails();
+            }
+        }
+        if (workoutCount == 0) {
+            std::cout << "（尚無運動記錄）\n";
+        }
+    }
+
+    // Show rental records
+    std::cout << "\n--- 租借記錄 ---\n";
+    int rentalCount = 0;
+    for (const auto& rec : rentals) {
+        if (rec->username == username) {
+            rentalCount++;
+            std::cout << "租借編號: " << rec->rentalId << ", 物品ID: " << rec->itemId 
+                      << ", 狀態: " << (rec->isReturned ? "已歸還" : "租借中") << "\n";
+        }
+    }
+    if (rentalCount == 0) {
+        std::cout << "（無租借記錄）\n";
+    }
+
+    std::cout << "==============================================\n";
+}
+
+void HealthSystem::loadFeedbacks() {
+    feedbacks.clear();
+    std::ifstream file("feedbacks.txt");
+    
+    if (!file.is_open()) {
+        return; // No feedbacks file yet
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (!line.empty()) {
+            feedbacks.emplace_back(line);
+        }
+    }
+    file.close();
+}
+
+void HealthSystem::saveFeedbacks() {
+    std::ofstream file("feedbacks.txt");
+    if (!file.is_open()) return;
+
+    for (const auto& feedback : feedbacks) {
+        file << feedback.serialize() << "\n";
+    }
+    file.close();
+}
+
+void HealthSystem::submitFeedback(const std::string& message) {
+    if (!currentUser) {
+        std::cout << "需要登入才能提交反饋！\n";
+        return;
+    }
+
+    Feedback feedback(currentUser->getUsername(), message);
+    feedbacks.push_back(feedback);
+    saveFeedbacks();
+    std::cout << "\n✓ 反饋已成功提交！感謝您的建議！\n";
+}
+
+void HealthSystem::displayAllFeedbacks() {
+    std::cout << "\n================= 所有使用者反饋 =================\n";
+    
+    if (feedbacks.empty()) {
+        std::cout << "（尚無任何反饋）\n";
+    } else {
+        for (int i = 0; i < static_cast<int>(feedbacks.size()); ++i) {
+            const auto& feedback = feedbacks[i];
+            std::cout << "\n[" << (i + 1) << "] 來自: " << feedback.getFromUser() << "\n"
+                      << "時間: " << feedback.getTimestamp() << "\n"
+                      << "狀態: " << (feedback.getIsRead() ? "已讀" : "未讀") << "\n"
+                      << "內容: " << feedback.getMessage() << "\n"
+                      << "-------------------------------------\n";
+        }
+    }
+    std::cout << "==============================================\n";
+}
+
+void HealthSystem::markFeedbackAsRead(int index) {
+    if (index >= 0 && index < static_cast<int>(feedbacks.size())) {
+        feedbacks[index].markAsRead();
+        saveFeedbacks();
+    }
+}
+
+int HealthSystem::getUnreadFeedbackCount() const {
+    int count = 0;
+    for (const auto& feedback : feedbacks) {
+        if (!feedback.getIsRead()) {
+            count++;
+        }
+    }
+    return count;
 }

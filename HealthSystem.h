@@ -8,12 +8,14 @@
 #include "User.h"
 #include "RentableItem.h"
 #include "RentalRecord.h"
+#include "Feedback.h"
 
 class HealthSystem {
 private:
     std::unordered_map<std::string, std::shared_ptr<User>> users;
     std::vector<std::shared_ptr<RentableItem>> inventory;
     std::vector<std::shared_ptr<RentalRecord>> rentals;
+    std::vector<Feedback> feedbacks;
     std::shared_ptr<User> currentUser;
 
     // Helper functions for CSV parsing
@@ -21,11 +23,13 @@ private:
     void loadUsers();
     void loadInventory();
     void loadRentals();
+    void loadFeedbacks();
     void loadUserLogs(const std::string& username, const std::shared_ptr<User>& user);
 
     void saveUsers();
     void saveInventory();
     void saveRentals();
+    void saveFeedbacks();
     void saveUserLogs(const std::string& username, const std::shared_ptr<User>& user);
 
 public:
@@ -47,6 +51,7 @@ public:
     bool rentItem(const std::string& itemId);
     bool returnItem(const std::string& itemId);
     void addInventoryItem(std::shared_ptr<RentableItem> item);
+    bool deleteInventoryItem(const std::string& itemId);
     bool deleteUser(const std::string& username);
 
     // List helpers for admin
@@ -54,6 +59,14 @@ public:
     void listUserLogs(const std::string& username) const;
     void listRentals() const;
     void modifyUserTarget(const std::string& username, int newTarget);
+    void viewUserDetails(const std::string& username) const;
+    
+    // Feedback features
+    void submitFeedback(const std::string& message);
+    const std::vector<Feedback>& getAllFeedbacks() const { return feedbacks; }
+    void displayAllFeedbacks();
+    void markFeedbackAsRead(int index);
+    int getUnreadFeedbackCount() const;
 };
 
 #endif // HEALTHSYSTEM_H

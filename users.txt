@@ -1,4 +1,3 @@
 REGULAR,cindy,123,53,159,1200
 ADMIN,admin,admin
 REGULAR,user,user,70,175,2000
-
